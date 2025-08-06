@@ -1,18 +1,22 @@
-import pandas as pd
 import geopandas as gpd
 import numpy as np
-from shapely import wkt
 import matplotlib.patheffects as path_effects
 from sklearn.preprocessing import StandardScaler
 from sklearn_extra.cluster import KMedoids
 import matplotlib.pyplot as plt
 import folium
-from allData import concatData
+from allData import concatData # <-- Menggunakan file dependensi sesuai permintaan
+from sklearn.metrics import silhouette_score
 
 # --- 1. Memuat dan Mempersiapkan Data ---
 
-df = concatData.gdf
+# Memuat data dari file dependensi sesuai permintaan
+df = concatData.gdf 
+
+# Membuat GeoDataFrame dari DataFrame pandas
 gdf = gpd.GeoDataFrame(df, geometry='geometry')
+
+# Menetapkan Sistem Referensi Koordinat (CRS) awal ke WGS84 (EPSG:4326)
 gdf.crs = "EPSG:4326"
 
 # --- FIX UNTUK MENGHILANGKAN USERWARNING DAN MENINGKATKAN AKURASI ---
@@ -59,13 +63,20 @@ print("Fitur telah dipilih dan distandarisasi.")
 print("Shape dari data yang distandarisasi:", X_scaled.shape)
 print("\n")
 
-# --- 3. Melakukan Clustering dengan PAM (KMedoids) ---
+# --- 3. Melakukan Clustering dan Evaluasi ---
 
+print("Memulai clustering PAM...")
 kmedoids = KMedoids(n_clusters=3, method='pam', random_state=42)
 clusters = kmedoids.fit_predict(X_scaled)
 gdf['cluster'] = clusters
-
 print("Clustering PAM selesai.")
+
+# --- EVALUASI DENGAN SILHOUETTE SCORE ---
+silhouette_avg = silhouette_score(X_scaled, clusters)
+print(f"Evaluasi Klaster Selesai.")
+print(f"--> Silhouette Score untuk k=3 adalah: {silhouette_avg:.4f}")
+# ----------------------------------------
+
 print("Persebaran wilayah per klaster:")
 print(gdf['cluster'].value_counts())
 print("\n")
@@ -80,7 +91,7 @@ print(medoids[['Kabupaten/Kota', 'cluster'] + features])
 print("\n")
 
 
-# --- 5. Visualisasi Peta Statis dengan Matplotlib (DIPERBARUI) ---
+# --- 5. Visualisasi Peta Statis dengan Matplotlib ---
 
 print("Membuat peta statis...")
 fig, ax = plt.subplots(1, 1, figsize=(15, 12))
@@ -109,7 +120,6 @@ for kabupaten, row in label_gdf.iterrows():
         fontsize=8,
         color='white',
         fontweight='bold',
-        # --- FIX UNTUK MENGATASI ATTRIBUTEERROR ---
         path_effects=[path_effects.withStroke(linewidth=2, foreground='black')]
     )
 
@@ -119,17 +129,12 @@ plt.tight_layout()
 plt.show()
 
 
-# --- 6. Visualisasi Peta Interaktif dengan Folium (DIPERBARUI) ---
+# --- 6. Visualisasi Peta Interaktif dengan Folium ---
 
 print("Membuat peta interaktif...")
 map_center = [gdf['lat'].mean(), gdf['lon'].mean()]
 m = folium.Map(location=map_center, zoom_start=8, tiles='CartoDB positron')
 
-# SOLUSI: Jangan ubah kolom 'cluster' menjadi string. Biarkan sebagai integer.
-# gdf['cluster'] = gdf['cluster'].astype(str) # <-- BARIS INI DIHAPUS
-
-# Mendefinisikan skala ambang batas untuk memastikan pewarnaan kategoris
-# Ini akan membuat 3 warna berbeda untuk klaster 0, 1, dan 2
 max_cluster_val = gdf['cluster'].max()
 threshold_scale = list(np.linspace(0, max_cluster_val + 1, 4))
 
@@ -139,12 +144,12 @@ choropleth = folium.Choropleth(
     data=gdf,
     columns=['Kabupaten/Kota', 'cluster'],
     key_on='feature.properties.Kabupaten/Kota',
-    fill_color='Set1', # Menggunakan colormap kategoris yang lebih sesuai
+    fill_color='Set1',
     fill_opacity=0.7,
     line_opacity=0.2,
     legend_name='ID Klaster Risiko',
-    threshold_scale=threshold_scale, # Menambahkan skala untuk kategori
-    nan_fill_color="white" # Warna untuk area tanpa data
+    threshold_scale=threshold_scale,
+    nan_fill_color="white"
 ).add_to(m)
 
 tooltip_fields = [
@@ -173,5 +178,3 @@ folium.LayerControl().add_to(m)
 
 output_filename = 'cluster_pam_interaktif.html'
 m.save(output_filename)
-
-print(f"Peta interaktif berhasil disimpan sebagai '{output_filename}'")
