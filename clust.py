@@ -19,8 +19,6 @@ gdf = gpd.GeoDataFrame(df, geometry='geometry')
 # Menetapkan Sistem Referensi Koordinat (CRS) awal ke WGS84 (EPSG:4326)
 gdf.crs = "EPSG:4326"
 
-# --- FIX UNTUK MENGHILANGKAN USERWARNING DAN MENINGKATKAN AKURASI ---
-# Proyeksikan ke CRS yang sesuai (UTM Zone 48S untuk Lampung) untuk perhitungan centroid yang akurat
 print("Memproyeksikan CRS untuk perhitungan centroid yang akurat...")
 projected_crs = "EPSG:32748" # UTM Zone 48S cocok untuk Lampung
 original_crs = gdf.crs

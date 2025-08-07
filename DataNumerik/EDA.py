@@ -1,38 +1,48 @@
 import pandas as pd
 import os
 
-#EDA
-data1 = pd.read_csv('DataNumerik/rawData/jumlahPenduduk.csv')
-jumlah_lansia = int(data1['Jumlah (Ribu)'].iloc[12:16].sum() * 1000)
-jumlahPenduduk = int(data1['Jumlah (Ribu)'][16]*1000)
-data2 = pd.read_csv('DataNumerik/rawData/jumlahNakes.csv')
-data2['Total Nakes'] = data2[['Tenaga Kesehatan - Perawat', 'Tenaga Kesehatan - Bidan', 'Tenaga Kesehatan - Tenaga Kefarmasian','Tenaga Kesehatan - Tenaga Kesehatan Masyarakat','Tenaga Kesehatan - Tenaga Kesehatan Lingkungan','Tenaga Kesehatan - Tenaga Gizi']].sum(axis=1)
-data3 = pd.read_csv('DataNumerik/rawData/kepadatanPenduduk.csv')
-data3['Jumlah Lansia'] = (data3['Persentase Penduduk'] / 100) * jumlah_lansia
-data3['Jumlah Lansia'] = data3['Jumlah Lansia'].astype(int)
-jumlahPenduduk = int(data1['Jumlah (Ribu)'][16]*1000)
-data5 = pd.read_csv('DataNumerik/rawData/sebaranPenyakit.csv')
-data5 = data5.fillna(0)
-data5['Jumlah Kasus Penyakit Kusta'] = data5['Jumlah Kasus Penyakit Kusta']*jumlahPenduduk/100000
-data5['Jumlah Kasus Penyakit Kusta'] = data5['Jumlah Kasus Penyakit Kusta'].astype(int)
-data5['Jumlah Kasus Penyakit Malaria'] = data5['Jumlah Kasus Penyakit Malaria']*jumlahPenduduk/1000
-data5['Jumlah Kasus Penyakit Malaria'] = data5['Jumlah Kasus Penyakit Malaria'].astype(int)
-data5['Jumlah Kasus Penyakit DBD'] = data5['Jumlah Kasus Penyakit DBD']*jumlahPenduduk/100000
-data5['Jumlah Kasus Penyakit DBD'] = data5['Jumlah Kasus Penyakit DBD'].astype(int)
-data5['Jumlah Penyakit Menular'] = data5['Jumlah Kasus Penyakit Malaria']+data5['Jumlah Kasus Penyakit DBD']
-data5['Jumlah Penyakit Menular'] = data5['Jumlah Penyakit Menular'].astype(int)
-kolom= [
-    data2['Kabupaten/Kota'],
-    data2['Total Nakes'],
-    data3['Jumlah Lansia'],
-    data3['Kepadatan Penduduk per km persegi (Km2)'],
-    data5['Jumlah Penyakit Menular']
+data_penduduk_total = pd.read_csv('DataNumerik/rawData/jumlahPenduduk.csv')
+data_nakes = pd.read_csv('DataNumerik/rawData/jumlahNakes.csv')
+data_kependudukan = pd.read_csv('DataNumerik/rawData/kepadatanPenduduk.csv')
+data_penyakit = pd.read_csv('DataNumerik/rawData/sebaranPenyakit.csv')
+jumlah_lansia = int(data_penduduk_total['Jumlah (Ribu)'].iloc[12:16].sum() * 1000)
+data_nakes_bersih = data_nakes[:15].copy()
+data_kependudukan_bersih = data_kependudukan[:15].copy()
+data_penyakit_bersih = data_penyakit[:15].copy()
+df_master = data_kependudukan_bersih.copy()
+df_master = pd.merge(df_master, data_nakes_bersih, on='Kabupaten/Kota', how='left')
+df_master = pd.merge(df_master, data_penyakit_bersih, on='Kabupaten/Kota', how='left')
+kolom_nakes = [
+    'Tenaga Kesehatan - Perawat', 'Tenaga Kesehatan - Bidan', 'Tenaga Kesehatan - Tenaga Kefarmasian',
+    'Tenaga Kesehatan - Tenaga Kesehatan Masyarakat','Tenaga Kesehatan - Tenaga Kesehatan Lingkungan','Tenaga Kesehatan - Tenaga Gizi'
 ]
-data = pd.concat(kolom,axis=1)
-data = data[:15]
-data['Kabupaten/Kota'] = data['Kabupaten/Kota'].str.replace(' ', '_')
+df_master['Total Nakes'] = df_master[kolom_nakes].sum(axis=1)
+df_master['Jumlah Lansia'] = (df_master['Persentase Penduduk'] / 100) * jumlah_lansia
+df_master['Jumlah Penduduk (Ribu)'] = df_master['Jumlah Penduduk (Ribu)']*1000
+df_master['Jumlah Kasus Penyakit Malaria'] = df_master['Jumlah Kasus Penyakit Malaria'] * df_master['Jumlah Penduduk (Ribu)'] / 1000
+df_master['Jumlah Kasus Penyakit DBD'] = df_master['Jumlah Kasus Penyakit DBD'] * df_master['Jumlah Penduduk (Ribu)'] / 100000
 
-#Simpan Data Hasil EDA
+df_master['Jumlah Penyakit Menular'] = df_master['Jumlah Kasus Penyakit Malaria'].fillna(0) + df_master['Jumlah Kasus Penyakit DBD'].fillna(0)
+
+kolom_final = [
+    'Kabupaten/Kota',
+    'Total Nakes',
+    'Jumlah Lansia',
+    'Kepadatan Penduduk per km persegi (Km2)',
+    'Jumlah Penyakit Menular'
+]
+df_clean = df_master[kolom_final].copy()
+
+# Ubah tipe data menjadi integer setelah semua perhitungan selesai
+df_clean['Total Nakes'] = df_clean['Total Nakes'].astype(int)
+df_clean['Jumlah Lansia'] = df_clean['Jumlah Lansia'].astype(int)
+df_clean['Jumlah Penyakit Menular'] = df_clean['Jumlah Penyakit Menular'].astype(int)
+
+# Ganti spasi pada nama kabupaten/kota
+df_clean['Kabupaten/Kota'] = df_clean['Kabupaten/Kota'].str.replace(' ', '_')
 output_dir = 'DataNumerik/cleanData'
 os.makedirs(output_dir, exist_ok=True)
-data.to_csv(os.path.join(output_dir, 'cleanData.csv'), index=False)
+df_clean.to_csv(os.path.join(output_dir, 'cleanData.csv'), index=False)
+
+print(f"Proses EDA selesai. Jumlah lansia yang digunakan: {jumlah_lansia}")
+print("File cleanData.csv berhasil disimpan.")
