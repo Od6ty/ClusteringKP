@@ -5,7 +5,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn_extra.cluster import KMedoids
 import matplotlib.pyplot as plt
 import folium
-from allData import concatData # <-- Menggunakan file dependensi sesuai permintaan
+from allData import concatData
 from sklearn.metrics import silhouette_score
 
 # --- 1. Memuat dan Mempersiapkan Data ---
@@ -35,25 +35,20 @@ gdf['lat'] = centroids_geographic.y
 # --------------------------------------------------------------------
 
 print("Data berhasil dimuat dan diproses menjadi GeoDataFrame.")
-print(gdf.head())
 print("\n")
 
 # --- 2. Rekayasa dan Standardisasi Fitur ---
-
-# Membuat fitur baru: rasio tenaga kesehatan per 1000 lansia
-epsilon = 1e-6
-gdf['rasio_layanan_kesehatan'] = (gdf['Total Nakes'] / (gdf['Jumlah Lansia'] + epsilon)) * 1000
 
 # Memilih fitur numerik dan spasial yang akan digunakan untuk clustering
 features = [
     'Kepadatan Penduduk per km persegi (Km2)',
     'Jumlah Penyakit Menular',
-    'rasio_layanan_kesehatan',
+    'Total Nakes',
     'lon',
     'lat'
 ]
-
 X = gdf[features]
+print(X.head())
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
@@ -62,9 +57,34 @@ print("Shape dari data yang distandarisasi:", X_scaled.shape)
 print("\n")
 
 # --- 3. Melakukan Clustering dan Evaluasi ---
+K_range = range(2, 9)
+silhouette_scores = []
+
+for k in K_range:
+    kmedoids = KMedoids(n_clusters=k, metric='euclidean', method='pam', random_state=42)
+    labels = kmedoids.fit_predict(X_scaled)
+    score = silhouette_score(X_scaled, labels)
+    silhouette_scores.append(score)
+    print(f'k={k}, silhouette score={score:.3f}')
+
+# --- Cari nilai k dengan silhouette score maksimum ---
+k_opt = K_range[np.argmax(silhouette_scores)]
+score_opt = max(silhouette_scores)
+
+# --- Plot visualisasi ---
+plt.figure(figsize=(8,5))
+plt.plot(list(K_range), silhouette_scores, marker='d')
+plt.xlabel('k')
+plt.ylabel('Silhouette score')
+plt.title('Silhouette Coefficient for K-Medoids Clustering')
+plt.grid(True)
+plt.axvline(x=k_opt, linestyle='--', color='black', linewidth=2)
+annotation = f"elbow at k = {k_opt}, score = {score_opt:.3f}"
+plt.legend([annotation])
+plt.show()
 
 print("Memulai clustering PAM...")
-kmedoids = KMedoids(n_clusters=3, method='pam', random_state=42)
+kmedoids = KMedoids(n_clusters=k_opt, metric='euclidean', method='pam', random_state=42)
 clusters = kmedoids.fit_predict(X_scaled)
 gdf['cluster'] = clusters
 print("Clustering PAM selesai.")
@@ -72,7 +92,7 @@ print("Clustering PAM selesai.")
 # --- EVALUASI DENGAN SILHOUETTE SCORE ---
 silhouette_avg = silhouette_score(X_scaled, clusters)
 print(f"Evaluasi Klaster Selesai.")
-print(f"--> Silhouette Score untuk k=3 adalah: {silhouette_avg:.4f}")
+print(f"--> Silhouette Score untuk k={k_opt} adalah: {silhouette_avg:.4f}")
 # ----------------------------------------
 
 print("Persebaran wilayah per klaster:")
@@ -155,7 +175,7 @@ tooltip_fields = [
     'cluster',
     'Kepadatan Penduduk per km persegi (Km2)',
     'Jumlah Penyakit Menular',
-    'rasio_layanan_kesehatan'
+    'Total Nakes'
 ]
 
 tooltip = folium.features.GeoJsonTooltip(
@@ -165,7 +185,7 @@ tooltip = folium.features.GeoJsonTooltip(
         'Klaster:',
         'Kepadatan Penduduk:',
         'Jumlah Penyakit Menular:',
-        'Rasio Nakes/1000 Lansia:'
+        'Total Nakes:'
     ],
     sticky=True,
     style=("background-color: white; color: #333333; font-family: arial; font-size: 12px; padding: 10px;")
