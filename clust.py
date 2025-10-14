@@ -1,5 +1,7 @@
 import geopandas as gpd
 import numpy as np
+import seaborn as sns
+import pandas as pd
 import matplotlib.patheffects as path_effects
 from sklearn.preprocessing import StandardScaler
 from sklearn_extra.cluster import KMedoids
@@ -7,6 +9,7 @@ import matplotlib.pyplot as plt
 import folium
 from allData import concatData
 from sklearn.metrics import silhouette_score
+from sklearn.metrics import pairwise_distances
 
 # --- 1. Memuat dan Mempersiapkan Data ---
 
@@ -79,7 +82,7 @@ plt.ylabel('Silhouette score')
 plt.title('Silhouette Coefficient for K-Medoids Clustering')
 plt.grid(True)
 plt.axvline(x=k_opt, linestyle='--', color='black', linewidth=2)
-annotation = f"elbow at k = {k_opt}, score = {score_opt:.3f}"
+annotation = f"k optimal= {k_opt}, skor = {score_opt:.3f}"
 plt.legend([annotation])
 plt.show()
 
@@ -141,7 +144,7 @@ for kabupaten, row in label_gdf.iterrows():
         path_effects=[path_effects.withStroke(linewidth=2, foreground='black')]
     )
 
-ax.set_title('Hasil Clustering Spasial Risiko Penyakit (n=3)', fontsize=16, pad=20)
+ax.set_title(f'Hasil Clustering Spasial Risiko Penyakit (n={k_opt})', fontsize=16, pad=20)
 ax.set_axis_off()
 plt.tight_layout()
 plt.show()
